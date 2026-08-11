@@ -1,0 +1,35 @@
+﻿Navegando: https://saganrecruitment.com/job/mitigation-documentation-specialist-hr87436/
+Abrindo modal...
+
+============================================================
+CAMPO: academic-level
+============================================================
+<select name="academic-level" placeholder="Academic Level" class="academic-level selectize-select required-cussel-field selectized" tabindex="-1" style="display: none;"><option value="" selected="selected"></option></select>
+
+Visivel: False | Habilitado: True
+
+============================================================
+CAMPO: Age
+============================================================
+<select name="Age" placeholder="Age" class="age selectize-select required-cussel-field selectized" tabindex="-1" style="display: none;"><option value="" selected="selected"></option></select>
+
+Visivel: False | Habilitado: True
+
+============================================================
+CAMPO: gender
+============================================================
+<select name="gender" placeholder="Gender" class="Gender selectize-select required-cussel-field selectized" tabindex="-1" style="display: none;"><option value="" selected="selected"></option></select>
+
+Visivel: False | Habilitado: True
+
+============================================================
+CAMPO: industry
+============================================================
+<select name="industry" placeholder="Industry" class="Industry selectize-select required-cussel-field selectized" tabindex="-1" style="display: none;"><option value="" selected="selected"></option></select>
+
+Visivel: False | Habilitado: True
+
+
+Aguardando 10s para inspecao manual...
+
+Analise concluida!

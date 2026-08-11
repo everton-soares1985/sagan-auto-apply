@@ -1,0 +1,176 @@
+﻿{
+    "job_id":  "mitigation-documentation-specialist-hr87436",
+    "title":  "Mitigation Documentation Specialist - (HR87436)",
+    "url":  "https://saganrecruitment.com/job/mitigation-documentation-specialist-hr87436/",
+    "location":  "",
+    "job_type":  "",
+    "salary":  "",
+    "description":  "Job Detail\nJob ID \nHR87436\nSalary \n$1200 - $1800\nJob Description\n\nJob Title: Mitigation Documentation Specialist\nLocation: Remote (Globally)\nSalary Range: 1200 – 1800 USD/month\n\nWork Schedule:  Monday to Friday, 8:00 AM – 5:00 PM (EST) \n\n\nNOTE: INDEPENDENT CONTRACTOR POSITION\n\n\nCompany Overview:\n\nSagan is an exclusive membership community for top executives, founders, and CEOs seeking to hire and maximize the impact of international talent. We bridge the gap between global talent and U.S.-based businesses, connecting candidates from regions like Latin America, the Philippines, India, Pakistan, Bangladesh, and Africa with leading American companies. Sagan provides a high-performance remote work environment, ensuring access to world-class opportunities for top-tier professionals.\n\nPosition O",
+    "form_fields":  [
+                        {
+                            "name":  "pt_user_fname",
+                            "field_type":  "text",
+                            "label":  "First Name",
+                            "required":  false,
+                            "placeholder":  "First Name",
+                            "options":  "",
+                            "selector":  "[name=\"pt_user_fname\"]"
+                        },
+                        {
+                            "name":  "pt_user_lname",
+                            "field_type":  "text",
+                            "label":  "Last Name",
+                            "required":  false,
+                            "placeholder":  "Last Name",
+                            "options":  "",
+                            "selector":  "[name=\"pt_user_lname\"]"
+                        },
+                        {
+                            "name":  "user_email",
+                            "field_type":  "text",
+                            "label":  "Email Address",
+                            "required":  false,
+                            "placeholder":  "Email Address",
+                            "options":  "",
+                            "selector":  "[name=\"user_email\"]"
+                        },
+                        {
+                            "name":  "user_phone",
+                            "field_type":  "tel",
+                            "label":  "Phone Number",
+                            "required":  false,
+                            "placeholder":  "Phone Number",
+                            "options":  "",
+                            "selector":  "#pt_user_phone_187481998"
+                        },
+                        {
+                            "name":  "user_job_title",
+                            "field_type":  "text",
+                            "label":  "Current Job Title",
+                            "required":  false,
+                            "placeholder":  "Current Job Title",
+                            "options":  "",
+                            "selector":  "[name=\"user_job_title\"]"
+                        },
+                        {
+                            "name":  "user_salary",
+                            "field_type":  "text",
+                            "label":  "Current Salary",
+                            "required":  false,
+                            "placeholder":  "Current Salary",
+                            "options":  "",
+                            "selector":  "[name=\"user_salary\"]"
+                        },
+                        {
+                            "name":  "academic-level",
+                            "field_type":  "select",
+                            "label":  "Academic Level",
+                            "required":  false,
+                            "placeholder":  "Academic Level",
+                            "options":  "",
+                            "selector":  "[name=\"academic-level\"]"
+                        },
+                        {
+                            "name":  "Age",
+                            "field_type":  "select",
+                            "label":  "Age",
+                            "required":  false,
+                            "placeholder":  "Age",
+                            "options":  "",
+                            "selector":  "[name=\"Age\"]"
+                        },
+                        {
+                            "name":  "salary",
+                            "field_type":  "text",
+                            "label":  "salary",
+                            "required":  false,
+                            "placeholder":  "",
+                            "options":  "",
+                            "selector":  "#salary83785"
+                        },
+                        {
+                            "name":  "gender",
+                            "field_type":  "select",
+                            "label":  "Gender",
+                            "required":  false,
+                            "placeholder":  "Gender",
+                            "options":  "",
+                            "selector":  "[name=\"gender\"]"
+                        },
+                        {
+                            "name":  "industry",
+                            "field_type":  "select",
+                            "label":  "Industry",
+                            "required":  false,
+                            "placeholder":  "Industry",
+                            "options":  "",
+                            "selector":  "[name=\"industry\"]"
+                        },
+                        {
+                            "name":  "cand_woutreg_cv_file",
+                            "field_type":  "file",
+                            "label":  "cand_woutreg_cv_file",
+                            "required":  false,
+                            "placeholder":  "",
+                            "options":  "",
+                            "selector":  "#cand_cv_filefield"
+                        },
+                        {
+                            "name":  "cand_cover_letter",
+                            "field_type":  "textarea",
+                            "label":  "Cover Letter",
+                            "required":  false,
+                            "placeholder":  "Cover Letter",
+                            "options":  "",
+                            "selector":  "[name=\"cand_cover_letter\"]"
+                        },
+                        {
+                            "name":  "candidate_apply_cover",
+                            "field_type":  "file",
+                            "label":  "candidate_apply_cover",
+                            "required":  false,
+                            "placeholder":  "",
+                            "options":  "",
+                            "selector":  "[name=\"candidate_apply_cover\"]"
+                        },
+                        {
+                            "name":  "job_id",
+                            "field_type":  "hidden",
+                            "label":  "job_id",
+                            "required":  false,
+                            "placeholder":  "",
+                            "options":  "",
+                            "selector":  "[name=\"job_id\"]"
+                        },
+                        {
+                            "name":  "terms_cond_check",
+                            "field_type":  "checkbox",
+                            "label":  "terms_cond_check",
+                            "required":  false,
+                            "placeholder":  "",
+                            "options":  "",
+                            "selector":  "[name=\"terms_cond_check\"]"
+                        }
+                    ],
+    "common_fields":  [
+                          "Age",
+                          "academic-level",
+                          "cand_cover_letter",
+                          "cand_woutreg_cv_file",
+                          "candidate_apply_cover",
+                          "gender",
+                          "industry",
+                          "job_id",
+                          "pt_user_fname",
+                          "pt_user_lname",
+                          "salary",
+                          "terms_cond_check",
+                          "user_email",
+                          "user_job_title",
+                          "user_phone",
+                          "user_salary"
+                      ],
+    "unique_fields":  [
+
+                      ]
+}

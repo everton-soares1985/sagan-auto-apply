@@ -1,0 +1,25 @@
+# Dados pessoais e configuracoes sensiveis
+candidate_profile.json
+
+# Logs e relatorios
+*.log
+sagan_apply.log
+sagan_apply_report.json
+fill_error_*.png
+submit_fail_*.png
+error_*.png
+debug_*.png
+
+# Cache de navegador e Python
+__pycache__/
+*.pyc
+chrome_data_*/
+.venv/
+venv/
+ENV/
+
+# Arquivos de IDE e SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

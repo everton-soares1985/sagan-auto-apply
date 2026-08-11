@@ -1,0 +1,268 @@
+﻿=== TEXTO COMPLETO DA PAGINA ===
+Mitigation Documentation Specialist - (HR87436)
+
+
+
+
+Location: Remote (Globally) 
+
+Salary Range: 1200 - 1800 USD/month
+
+
+
+
+Work Schedule:  Monday to Friday, 8:00 AM - 5:00 PM (EST) 
+
+
+
+
+
+
+
+NOTE: INDEPENDENT CONTRACTOR POSITION
+
+
+
+
+
+
+
+Company Overview:
+
+
+
+
+Sagan is an exclusive membership community for top executives, founders, and CEOs seeking to hire and maximize the impact of international talent. We bridge the gap between global talent and U.S.-based businesses, connecting candidates from regions like Latin America, the Philippines, India, Pakistan, Bangladesh, and Africa with leading American companies. Sagan provides a high-performance remote work environment, ensuring access to world-class opportunities for top-tier professionals.
+
+
+
+
+Position Overview:
+
+
+
+
+We are seeking a detail-oriented and highly accurate Mitigation Documentation Specialist to support insurance carrier compliance documentation for water mitigation projects.
+
+
+
+
+In this role, you will transfer field data captured by technicians in Clean Claims into Cotality Mitigate. This includes rebuilding sketches, entering drying logs and equipment records, and completing all carrier-required documentation.
+
+
+
+
+This is not a basic data-entry position. The ideal candidate must understand the information well enough to identify missing entries, inconsistent readings, discrepancies between systems, and other details that do not make sense. You will work closely with project managers to resolve these issues before reports are finalized.
+
+
+
+
+The role requires someone who can process information quickly while maintaining a high level of accuracy. All assigned documentation is expected to be completed within the same U.S. business day. 
+
+
+
+
+Key Responsibilities:
+
+
+
+
+Work through a daily queue of active water mitigation projects.
+Transfer field data from Clean Claims into Cotality Mitigate accurately and efficiently.
+Rebuild water mitigation sketches based on information captured by field technicians.
+Enter drying logs, moisture readings, equipment records, and other job-related information.
+Complete insurance carrier-required documentation according to established standards.
+Compare information between Clean Claims and Cotality Mitigate to ensure consistency.
+Review moisture readings and drying trends to identify information that appears incomplete or inaccurate.
+Identify missing entries, data gaps, unusual readings, and discrepancies between systems.
+Proactively flag documentation issues to the assigned project manager.
+Coordinate with project managers to obtain clarification and resolve discrepancies.
+Correct documentation as needed before reports are finalized and submitted.
+Maintain organized and accurate records for every assigned project.
+Process all assigned items with urgency and complete them within the same business day.
+Follow internal procedures and insurance carrier documentation requirements.
+Learn and adapt quickly to specialized restoration and documentation software.
+Protect confidential customer, property, and insurance information.
+
+
+
+
+Qualifications:
+
+
+
+
+Exceptional attention to detail and commitment to accuracy.
+Ability to work quickly through high volumes of information without overlooking errors.
+Strong analytical skills and the ability to identify inconsistencies or information that does not make sense.
+Strong written English communication skills.
+Ability to follow detailed processes and carrier-specific documentation requirements.
+Comfortable working with technical information, digital records, and specialized software.
+Ability to learn new systems and workflows quickly.
+Strong organizational and time-management skills.
+Proactive approach to identifying and communicating potential issues.
+Ability to work independently and manage a daily queue of assignments.
+Comfortable asking questions and escalating discrepancies when clarification is needed.
+Reliable internet connection and a professional remote-work environment.
+Availability to work Monday through Friday from 8:00 AM to 5:00 PM EST.
+
+
+
+
+Nice-to-Haves:
+
+
+
+
+Previous experience in water mitigation, property restoration, insurance, construction, or a related industry.
+Experience preparing insurance carrier or compliance documentation.
+Familiarity with Clean Claims, Cotality Mitigate, or similar restoration software.
+Experience working with drying logs, moisture readings, equipment records, or mitigation sketches.
+Background in quality assurance, data validation, documentation review, or high-volume data processing.
+Experience working remotely with a U.S.-based company or team.
+
+
+ *
+
+
+
+
+Your Full Name *
+
+Your Full Name:
+
+Your Email *
+
+Your Email:
+
+Your Country of Residence *
+
+Your Country of Residence:
+
+Your Phone number *
+
+International
+Afghanistan
+Åland Islands
+Albania
+Algeria
+American Samoa
+Andorra
+Angola
+Anguilla
+Antigua and Barbuda
+Argentina
+Armenia
+Aruba
+Ascension Island
+Australia
+Austria
+Azerbaijan
+Bahamas
+Bahrain
+Bangladesh
+Barbados
+Belarus
+Belgium
+Belize
+Benin
+Bermuda
+B
+
+
+=== ESTRUTURA AO REDOR DOS CAMPOS ===
+
+[y=2232] Campo 0 (parent 2x <DIV>):
+  Your Full Name *
+
+Your Full Name:
+
+[y=2314] Campo 1 (parent 2x <DIV>):
+  Your Email *
+
+Your Email:
+
+[y=2397] Campo 2 (parent 2x <DIV>):
+  Your Country of Residence *
+
+Your Country of Residence:
+
+[y=2581] Campo 5 (parent 2x <DIV>):
+  Copy and paste the text of your resume here. Do not worry about formatting. Just the unstructured text. *
+
+Copy and paste the text of your resume here. Do not worry about formatting. Just the unstruct
+
+[y=2734] Campo 6 (parent 2x <DIV>):
+  Put in Your LinkedIn Profile if You Have One
+
+Paste LinkedIn URL (or leave blank if none)
+
+Put in Your LinkedIn Profile if You Have One:
+
+[y=2835] Campo 7 (parent 0x <DIV>):
+  <p><strong>Upload Your Latest Resume</strong></p>
+Drag & drop a file or 
+press Enter to
+browse
+Max file size is 5 MB
+
+[y=3238] Campo 11 (parent 2x <DIV>):
+  What is your current monthly compensation (base + variable, if any)? *
+
+What is your current monthly compensation (base + variable, if any)?:
+
+[y=3339] Campo 12 (parent 2x <DIV>):
+  What is your target monthly compensation for your next role? *
+
+Please include the currency (USD) and the monthly amount
+
+What is your target monthly compensation for your next role?:
+
+[y=3593] Campo 13 (parent 2x <DIV>):
+  Your story (150–200 words, plain English):
+
+
+
+
+Tell us what shaped you. Aim for three parts:
+
+
+
+
+ • Early influences
+
+ • Key turning point
+
+ • What drives you now
+
+
+
+
+ Finish with a one-line goal. *
+
+
+
+[y=3783] Campo 14 (parent 2x <DIV>):
+  Describe your experience preparing insurance carrier or compliance documentation for water mitigation, property restoration, construction, insurance, or related projects. *
+
+Describe your experience p
+
+[y=3956] Campo 15 (parent 2x <DIV>):
+  Explain your experience using Clean Claims, Cotality Mitigate, or similar restoration/project documentation software to manage job records and field data. *
+
+Explain your experience using Clean Claims
+
+[y=4110] Campo 16 (parent 2x <DIV>):
+  Describe how you have identified and resolved missing information, inconsistent data, or discrepancies when reviewing records from multiple systems. *
+
+Describe how you have identified and resolved mi
+
+[y=4264] Campo 17 (parent 2x <DIV>):
+  Explain your experience with quality assurance, data validation, documentation review, or processing high volumes of information while maintaining accuracy. *
+
+Explain your experience with quality ass
+
+[y=4438] Campo 18 (parent 2x <DIV>):
+  Talk about your experience working with drying logs, moisture readings, equipment records, or mitigation sketches and how you ensured the information was accurate *
+
+Talk about your experience working
