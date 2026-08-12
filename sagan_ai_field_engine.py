@@ -72,8 +72,7 @@ FIELD_CATEGORIES = {
     "current_salary":    ["current salary", "current compensation", "base salary", "current base", "current monthly compensation"],
     "target_salary":     ["salary expectation", "desired salary", "expected salary", "target salary", "target monthly compensation"],
     "job_title":         ["current title", "job title", "current position", "your title"],
-    "story":             ["tell us about yourself", "your story", "about yourself", "introduce yourself", "background",
-                          "story (150", "your story (150"],
+    "story":             ["tell us about yourself", "your story", "about yourself", "introduce yourself", "background"],
     "why_company":       ["why.*company", "why.*interested", "what interests you", "why do you want"],
     "experience_tech":   ["experience with", "technical experience", "relevant experience", "describe your experience",
                           "experience preparing", "experience sourcing", "experience leading", "experience managing"],
@@ -112,7 +111,11 @@ def detectar_categoria_campo(label: str, placeholder: str = "", aria_label: str 
     
     for categoria, palavras_chave in FIELD_CATEGORIES.items():
         for kw in palavras_chave:
-            if re.search(kw, texto):
+            try:
+                match = re.search(kw, texto)
+            except re.error:
+                match = kw.casefold() in texto
+            if match:
                 # Para categorias fixas: só aceita match se o label for curto (< 80 chars)
                 # ou se a keyword aparecer nos primeiros 60 chars do texto
                 if categoria in CATEGORIAS_FIXAS:
