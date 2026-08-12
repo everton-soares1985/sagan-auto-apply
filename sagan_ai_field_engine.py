@@ -87,19 +87,39 @@ FIELD_CATEGORIES = {
 def detectar_categoria_campo(label: str, placeholder: str = "", aria_label: str = "") -> str:
     """Classifica um campo pela categoria semântica baseando-se no texto visível.
     
-    Arquitetura idêntica ao classificar_campo_apply do Wellfound:
-    lê o texto do label (não a posição), e classifica por palavras-chave.
-    Retorna a categoria ou 'unknown' para campos dinâmicos que serão tratados pela IA.
+    REGRA: Keywords de categorias fixas (email, phone, etc.) só batem se o label
+    for CURTO (<= 80 chars) ou a keyword aparecer no INICIO do texto.
+    Perguntas longas (>80 chars) são sempre 'unknown' a menos que contenham
+    keywords de categorias de perguntas abertas (experience_tech, story, etc.)
     """
-    # Combina todos os textos disponíveis em uma string casefold para matching
-    texto = " ".join([label, placeholder, aria_label]).casefold().strip()
+    # Usa aria-label ou placeholder se disponível (labels curtos e precisos)
+    label_curto = aria_label or placeholder or ""
+    label_full = label.strip()
+    
+    # Texto principal para matching
+    texto = " ".join([label_curto, label_full]).casefold().strip()
     
     if not texto:
         return "unknown"
     
+    # Categorias FIXAS — só batem em labels curtos (<= 80 chars) para evitar
+    # falsos positivos em perguntas longas (ex: "through phone calls" → phone)
+    CATEGORIAS_FIXAS = {
+        "full_name", "email", "country", "phone", "resume_text",
+        "vocaroo", "linkedin", "github", "current_salary", "target_salary",
+        "job_title", "source_job", "full_time_agree", "contract_type",
+    }
+    
     for categoria, palavras_chave in FIELD_CATEGORIES.items():
         for kw in palavras_chave:
             if re.search(kw, texto):
+                # Para categorias fixas: só aceita match se o label for curto (< 80 chars)
+                # ou se a keyword aparecer nos primeiros 60 chars do texto
+                if categoria in CATEGORIAS_FIXAS:
+                    label_eh_curto = len(label_full.strip()) <= 80
+                    kw_no_inicio = bool(re.search(kw, texto[:60]))
+                    if not (label_eh_curto or kw_no_inicio):
+                        continue  # Ignora: keyword está dentro de uma pergunta longa
                 return categoria
     
     return "unknown"
@@ -486,7 +506,7 @@ class SaganFieldEngine:
             "resume_text":    p.get("cover_letter", "I am a results-driven professional with strong technical skills."),
             "vocaroo":        p.get("vocaroo_url", ""),
             "linkedin":       p.get("linkedin_url", ""),
-            "github":         p.get("github_url", ""),
+            "github":         p.get("github_url", p.get("linkedin_url", "")),
             "current_salary": str(p.get("current_salary", "")),
             "target_salary":  str(p.get("salary_expectation", "")),
             "job_title":      p.get("job_title", ""),
@@ -503,19 +523,27 @@ class SaganFieldEngine:
         
         # Campo dinâmico (categoria "unknown" ou sem resposta mapeada):
         # chama IA para gerar texto sob medida
+        # Inclui background_full no perfil sanitizado para a IA ter contexto rico
         if categoria in ("unknown", "screening_question", "motivation_question", "skills_question"):
-            print(f"  [AI] Campo dinâmico detectado: '{field_label[:60]}' → chamando IA...")
+            print(f"  [AI] Campo dinâmico: '{field_label[:70]}' → chamando IA...")
+            # Adiciona background_full ao contexto da IA se disponível
+            perfil_com_contexto = dict(self._perfil_sanitizado)
+            if p.get("background_full") and "background_full" not in perfil_com_contexto:
+                # background_full não tem dados pessoais, pode ir para a IA
+                perfil_com_contexto["background_full"] = p["background_full"][:2000]
             resposta_ai = gerar_resposta_campo_dinamico(
                 field_label,
                 self.job_title,
                 self.job_url,
-                self._perfil_sanitizado,
+                perfil_com_contexto,
             )
             if resposta_ai:
                 return resposta_ai
+            print(f"  [AI] Sem resposta da IA, usando fallback do perfil")
         
-        # Fallback absoluto
-        return p.get("cover_letter", "I am a results-driven professional with strong technical and communication skills.")
+        # Fallback: usa background_full se disponível, senão cover_letter
+        bg = p.get("background_full", "")
+        return bg[:400] if bg else p.get("cover_letter", "I am a results-driven professional with strong technical and communication skills.")
     
     def fill_all_fields(self) -> dict:
         """Detecta e preenche semanticamente todos os campos visíveis do formulário.
@@ -576,7 +604,7 @@ class SaganFieldEngine:
                 time.sleep(0.5)
                 
             except Exception as e:
-                print(f"  [WARN] Erro ao processar campo: {type(e).__name__}")
+                print(f"  [WARN] Erro ao processar campo: {type(e).__name__}: {str(e)[:80]}")
                 continue
         
         return {

@@ -113,10 +113,14 @@ class CandidateProfile:
     cover_letter: str = ""
     # Novos campos para forms.saganrecruitment.com
     linkedin_url: str = ""
+    vocaroo_url: str = ""
+    github_url: str = ""
     source_job: str = "LinkedIn - Sagan Recruitment Page Post"
     full_time_agree: str = "Yes"
     contract_type: str = "Full-time employment"
     story: str = ""
+    why_company: str = ""
+    background_full: str = ""
     exp_1: str = ""
     exp_2: str = ""
     exp_3: str = ""
@@ -146,10 +150,14 @@ class CandidateProfile:
             cv_file_path=data.get("cv_file_path", ""),
             cover_letter=data.get("cover_letter", ""),
             linkedin_url=data.get("linkedin_url", ""),
+            vocaroo_url=data.get("vocaroo_url", ""),
+            github_url=data.get("github_url", ""),
             source_job=data.get("source_job", "LinkedIn - Sagan Recruitment Page Post"),
             full_time_agree=data.get("full_time_agree", "Yes"),
             contract_type=data.get("contract_type", "Full-time employment"),
             story=data.get("story", ""),
+            why_company=data.get("why_company", ""),
+            background_full=data.get("background_full", ""),
             exp_1=data.get("exp_1", ""),
             exp_2=data.get("exp_2", ""),
             exp_3=data.get("exp_3", ""),
