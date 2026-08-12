@@ -752,126 +752,53 @@ class SaganAutoApplier:
                     failed_fields.append(label)
                     return False
                 
-                # ===== 4 PRIMEIROS CAMPOS FIXOS =====
-                # 1) Full Name: primeiro <input type="text">
-                full_name_val = self.profile.first_name + " " + self.profile.last_name
-                all_text_inputs = self.page.query_selector_all('input[type="text"]')
-                all_text_inputs = [e for e in all_text_inputs if e.is_visible()]
-                if all_text_inputs:
-                    fill_field(all_text_inputs[0], full_name_val, "full_name")
-                
-                # 2) Email: <input type="email">
-                email_elem = self.page.query_selector('input[type="email"]')
-                if email_elem and email_elem.is_visible():
-                    fill_field(email_elem, self.profile.email, "email")
-                
-                # 3) Country: <select> nativo (PRIMEIRO select)
-                if self.fill_country_select():
-                    filled_fields.append("country")
-                else:
-                    failed_fields.append("country")
-                
-                # 4) Phone: <input type="tel">
-                phone_elem = self.page.query_selector('input[type="tel"]')
-                if phone_elem and phone_elem.is_visible():
-                    fill_field(phone_elem, self.profile.phone, "phone")
-                
-                # ===== CAMPOS RESTANTES (ordem pode variar) =====
-                # 5) Resume text: textarea que contem "resume" no label/placeholder
-                textareas = self.page.query_selector_all('textarea')
-                textareas = [t for t in textareas if t.is_visible()]
-                
-                # Resume textarea: label/placeholder com "resume"
-                resume_text_val = self.profile.cover_letter or "Experienced professional with strong background in technology and automation."
-                resume_filled = False
-                for ta in textareas:
-                    label_text = ta.evaluate("el => { const p = el.closest('div'); return p ? p.innerText.toLowerCase() : ''; }")
-                    if 'resume' in label_text and 'copy' in label_text:
-                        if fill_field(ta, resume_text_val, "resume_text"):
-                            resume_filled = True
-                            break
-                if not resume_filled and textareas:
-                    # Fallback: primeiro textarea
-                    if fill_field(textareas[0], resume_text_val, "resume_text"):
-                        resume_filled = True
-                
-                # 6) LinkedIn: input text (segundo, pos resume)
-                # Buscar input que tem label "LinkedIn"
-                remaining_text_inputs = all_text_inputs[1:] if len(all_text_inputs) > 1 else []
-                linkedin_filled = False
-                for inp in remaining_text_inputs:
-                    label_text = inp.evaluate("el => { const p = el.closest('div'); return p ? p.innerText.toLowerCase() : ''; }")
-                    aria = (inp.get_attribute('aria-label') or '').lower()
-                    placeholder = (inp.get_attribute('placeholder') or '').lower()
-                    is_linkedin = (
-                        'linkedin' in label_text or
-                        'linkedin' in aria or
-                        'linkedin' in placeholder
+                # ===== PREENCHIMENTO SEMANTICO (SaganFieldEngine) =====
+                # Detecta cada campo pelo seu label/aria-label/placeholder (nao pela posicao).
+                # Campos fixos (nome, email, pais, telefone, linkedin, salario, vocaroo)
+                # sao respondidos direto do candidate_profile.json.
+                # Campos dinamicos (perguntas abertas nao mapeadas) chamam Gemini Flash via IA.
+                # React-selects sao tratados separadamente abaixo.
+                try:
+                    from sagan_ai_field_engine import SaganFieldEngine
+                    engine = SaganFieldEngine(
+                        page=self.page,
+                        profile=vars(self.profile) if hasattr(self.profile, '__dict__') else self.profile.__dict__,
+                        job_title=job_title,
+                        job_url=job_url,
                     )
-                    if is_linkedin:
-                        if self.profile.linkedin_url:
-                            if fill_field(inp, self.profile.linkedin_url, "linkedin"):
-                                linkedin_filled = True
-                        else:
-                            log("  - LinkedIn vazio, pulando")
-                        break
+                    engine_result = engine.fill_all_fields()
+                    filled_fields.extend(engine_result.get("filled", []))
+                    failed_fields.extend(engine_result.get("failed", []))
+                    skipped_engine = engine_result.get("skipped", [])
+                    if skipped_engine:
+                        log(f"  Campos ignorados pelo engine ({len(skipped_engine)}): {', '.join(skipped_engine[:5])}")
+                except ImportError:
+                    log("  [WARN] sagan_ai_field_engine.py nao encontrado, usando preenchimento legado", "WARN")
+                    # === FALLBACK LEGADO (caso o engine nao esteja disponivel) ===
+                    full_name_val = self.profile.first_name + " " + self.profile.last_name
+                    all_text_inputs = self.page.query_selector_all('input[type="text"]')
+                    all_text_inputs = [e for e in all_text_inputs if e.is_visible()]
+                    if all_text_inputs:
+                        fill_field(all_text_inputs[0], full_name_val, "full_name")
+                    email_elem = self.page.query_selector('input[type="email"]')
+                    if email_elem and email_elem.is_visible():
+                        fill_field(email_elem, self.profile.email, "email")
+                    if self.fill_country_select():
+                        filled_fields.append("country")
+                    else:
+                        failed_fields.append("country")
+                    phone_elem = self.page.query_selector('input[type="tel"]')
+                    if phone_elem and phone_elem.is_visible():
+                        fill_field(phone_elem, self.profile.phone, "phone")
                 
-                # 7) Current salary: input com placeholder contendo "$" e "base"
-                salary_filled_current = False
-                for inp in self.page.query_selector_all('input[type="text"]'):
-                    if not inp.is_visible():
-                        continue
-                    ph = inp.get_attribute('placeholder') or ''
-                    if 'base' in ph.lower() and '$' in ph:
-                        if fill_field(inp, str(self.profile.current_salary), "current_salary"):
-                            salary_filled_current = True
-                        break
-                if not salary_filled_current:
-                    for inp in remaining_text_inputs:
-                        ph = inp.get_attribute('placeholder') or ''
-                        if 'USD' in ph or 'usd' in ph:
-                            if fill_field(inp, str(self.profile.current_salary), "current_salary"):
-                                salary_filled_current = True
-                            break
-                
-                # 8) Target salary: input com placeholder "USD"
-                salary_filled_target = False
-                for inp in self.page.query_selector_all('input[type="text"]'):
-                    if not inp.is_visible():
-                        continue
-                    ph = inp.get_attribute('placeholder') or ''
-                    if 'usd' in ph.lower() and 'base' not in ph.lower():
-                        if fill_field(inp, str(self.profile.salary_expectation), "target_salary"):
-                            salary_filled_target = True
-                        break
-                
-                # 9) Story + Experience: textareas restantes (depois da resume_text)
-                remaining_textareas = [t for t in textareas if not (t.evaluate("el => el.value") or '').strip()]
-                story_val = self.profile.story or "I am a dedicated professional with strong analytical and problem-solving skills, seeking new opportunities to grow."
-                exp_vals = [
-                    self.profile.exp_1 or "I have extensive experience in this field with proven results.",
-                    self.profile.exp_2 or "I have strong analytical and problem-solving skills.",
-                    self.profile.exp_3 or "I am committed to quality and continuous improvement.",
-                    self.profile.exp_4 or "I have a proven track record of meeting deadlines.",
-                    self.profile.exp_5 or "I bring strong technical and communication skills.",
-                ]
-                
-                # Story = primeiro textarea restante
-                if remaining_textareas:
-                    fill_field(remaining_textareas[0], story_val, "story")
-                    # Experience = textareas seguintes
-                    for i, ta in enumerate(remaining_textareas[1:]):
-                        if i < len(exp_vals):
-                            fill_field(ta, exp_vals[i], f"exp_{i+1}")
-                
-                # ===== UPLOAD CV (FilePond) =====
+                # ===== UPLOAD CV (FilePond) — sempre separado =====
                 if self.profile.cv_file_path:
                     if self.upload_filepond_resume(self.profile.cv_file_path):
                         filled_fields.append("CV Upload")
                     else:
                         failed_fields.append("CV Upload")
                 
-                # ===== 3 REACT-SELECTS (Where/sole/contract) POR ULTIMO =====
+                # ===== 3 REACT-SELECTS (Where/sole/contract) — sempre separado =====
                 if self.fill_react_select(2, self.profile.source_job or "LinkedIn - Sagan Recruitment Page Post", short_value="LinkedIn"):
                     filled_fields.append("Where did you hear")
                 else:
@@ -901,7 +828,15 @@ class SaganAutoApplier:
                 result.details = msg
                 result.fields_filled = filled_fields
                 result.fields_failed = failed_fields
+                # Pausa visual: deixa o navegador aberto para revisao manual
+                if not self.headless:
+                    log("=" * 60)
+                    log("  NAVEGADOR ABERTO PARA REVISAO. Verifique o formulario.")
+                    log("  Pressione ENTER no terminal para fechar o navegador.")
+                    log("=" * 60)
+                    input()
                 return result
+
 
             log("  Simulando revisao humana dos dados (hesitacao natural)...")
             self.human_delay(2.5, 5.0)
