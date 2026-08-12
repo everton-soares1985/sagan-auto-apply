@@ -64,12 +64,14 @@ CTA_SELECTORS = [
 ]
 
 SUBMIT_BUTTON_SELECTORS = [
+    "button[data-cy='button-component']",
+    "div.fillout-field-button button",
+    "button:has-text('Submit')",
     "input[type='submit'][value*='Apply' i]",
     "input[type='submit'][value*='Submit' i]",
     "button[type='submit']",
     "input[type='submit']",
     "button:has-text('Apply')",
-    ".job-apply-btn",
 ]
 
 PROFILE_TO_FIELD_NAME = {
