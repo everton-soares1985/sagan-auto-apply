@@ -859,16 +859,77 @@ class SaganAutoApplier:
                     continue
 
             if submitted:
-                if not self.headless:
-                    log("  Navegador aberto por 10s para revisao visual...")
-                    time.sleep(10)
+                # Aguardar para o form processar a resposta
+                log("  Aguardando resposta do formulario...")
+                time.sleep(3)
+
+                # ===== VERIFICACAO REAL DE SUCESSO =====
+                # Detecta erros de validacao que indicam que o form NAO foi aceito
+                url_apos = self.page.url
+                texto_pagina = ""
+                try:
+                    texto_pagina = self.page.inner_text("body") or ""
+                except Exception:
+                    pass
+
+                # Indicadores de FALHA (form rejeitado com campos obrigatorios vazios)
+                ERROS_VALIDACAO = [
+                    "field is required",
+                    "required field",
+                    "this field is required",
+                    "please fill",
+                    "please complete",
+                    "campo obrigatorio",
+                    "campo requerido",
+                    "must be filled",
+                ]
+                texto_lower = texto_pagina.lower()
+                erros_encontrados = [e for e in ERROS_VALIDACAO if e in texto_lower]
+
+                # Indicadores de SUCESSO (mensagem de confirmacao ou mudanca de URL)
+                MENSAGENS_SUCESSO = [
+                    "thank you",
+                    "application received",
+                    "successfully submitted",
+                    "application submitted",
+                    "you have applied",
+                    "submission received",
+                    "obrigado",
+                    "candidatura recebida",
+                ]
+                mensagem_sucesso = any(m in texto_lower for m in MENSAGENS_SUCESSO)
+                url_mudou = url_apos != job_url
+
+                if erros_encontrados:
+                    # Form REJEITOU — campos obrigatorios ainda vazios
+                    shot = self.debug_screenshot(f"submit_validation_fail_{job_id}")
+                    log(f"  SUBMIT REJEITADO pelo formulario. Erros de validacao detectados: {erros_encontrados}", "WARN")
+                    log(f"  URL atual: {url_apos}", "WARN")
+                    log(f"  Screenshot: {shot}", "WARN")
+                    result.status = "SUBMIT_VALIDATION_FAILED"
+                    result.details = (
+                        f"Formulario rejeitou o envio (campos obrigatorios vazios). "
+                        f"Erros: {erros_encontrados}. Screenshot: {shot}"
+                    )
+                    result.fields_filled = filled_fields
+                    result.fields_failed = failed_fields
+                elif mensagem_sucesso or url_mudou:
+                    log(f"  Candidatura ENVIADA com sucesso! URL: {url_apos}")
+                    result.status = "SUBMITTED"
+                    result.details = "Formulario enviado e confirmado pelo site."
+                    result.fields_filled = filled_fields
+                    result.fields_failed = failed_fields
                 else:
-                    self.human_delay(3.0, 6.0)
-                log("  Candidatura enviada com sucesso!")
-                result.status = "SUBMITTED"
-                result.details = "Formulario enviado com sucesso."
-                result.fields_filled = filled_fields
-                result.fields_failed = failed_fields
+                    # Ambiguo: nao detectou erro nem confirmacao — tira screenshot para revisao
+                    shot = self.debug_screenshot(f"submit_ambiguous_{job_id}")
+                    log(f"  Status ambiguo apos submit. Sem confirmacao clara. Screenshot: {shot}", "WARN")
+                    result.status = "SUBMIT_UNCONFIRMED"
+                    result.details = (
+                        f"Botao clicado mas nao foi possivel confirmar envio. "
+                        f"Revisar screenshot: {shot}"
+                    )
+                    result.fields_filled = filled_fields
+                    result.fields_failed = failed_fields
             else:
                 log("  Botao de envio nao encontrado.", "WARN")
                 shot = self.debug_screenshot(f"submit_fail_{job_id}")
