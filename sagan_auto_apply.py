@@ -8,9 +8,11 @@ Versao sincrona usando Playwright Sync API para evitar problemas de asyncio no W
 """
 
 import argparse
+from contextlib import contextmanager
 import json
 import os
 import random
+import sqlite3
 import sys
 import time
 import warnings
@@ -45,13 +47,14 @@ DEFAULT_FIELDS_FILE = BASE_DIR / "sagan_fields.csv"
 DEFAULT_PROFILE_FILE = BASE_DIR / "candidate_profile.json"
 DEFAULT_REPORT_FILE = BASE_DIR / "sagan_apply_report.json"
 DEFAULT_LOG_FILE = BASE_DIR / "sagan_apply.log"
+DEFAULT_APPLICATIONS_DB = BASE_DIR / "sagan_applications.sqlite3"
 
-DEFAULT_TIMEOUT = 15000
-NAV_TIMEOUT = 30000
-HUMAN_DELAY_MIN = 0.4
-HUMAN_DELAY_MAX = 1.5
-BATCH_DELAY_MIN = 5.0
-BATCH_DELAY_MAX = 12.0
+DEFAULT_TIMEOUT = 24000
+NAV_TIMEOUT = 35000
+HUMAN_DELAY_MIN = 0.9
+HUMAN_DELAY_MAX = 2.2
+BATCH_DELAY_MIN = 8.0
+BATCH_DELAY_MAX = 17.0
 
 CTA_SELECTORS = [
     "a:has-text('APPLY FOR THIS JOB')",
@@ -192,6 +195,157 @@ def log(msg: str, level: str = "INFO"):
     print(line, flush=True)
 
 
+class ApplicationStore:
+    """Registro local de candidaturas confirmadas e vagas que exigem revisao."""
+
+    def __init__(self, db_path: Path):
+        self.db_path = db_path
+
+    @contextmanager
+    def _connection(self):
+        conn = sqlite3.connect(self.db_path)
+        try:
+            yield conn
+            conn.commit()
+        finally:
+            conn.close()
+
+    def _ensure_schema(self):
+        with self._connection() as conn:
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS submitted_applications (
+                    job_url TEXT PRIMARY KEY,
+                    job_id TEXT NOT NULL,
+                    job_title TEXT NOT NULL,
+                    submitted_at TEXT NOT NULL
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS review_applications (
+                    job_url TEXT PRIMARY KEY,
+                    job_id TEXT NOT NULL,
+                    job_title TEXT NOT NULL,
+                    failure_status TEXT NOT NULL,
+                    failed_fields_json TEXT NOT NULL DEFAULT '[]',
+                    details TEXT NOT NULL DEFAULT '',
+                    screenshot_path TEXT NOT NULL DEFAULT '',
+                    updated_at TEXT NOT NULL
+                )
+                """
+            )
+
+    def was_submitted(self, job_url: str) -> bool:
+        self._ensure_schema()
+        with self._connection() as conn:
+            row = conn.execute(
+                "SELECT 1 FROM submitted_applications WHERE job_url = ?",
+                (job_url,),
+            ).fetchone()
+        return row is not None
+
+    def filter_pending_jobs(self, jobs: List[dict]) -> List[dict]:
+        """Retorna somente vagas que nao foram enviadas nem separadas para revisao."""
+        self._ensure_schema()
+        with self._connection() as conn:
+            blocked_urls = {
+                row[0]
+                for row in conn.execute("SELECT job_url FROM submitted_applications")
+            }
+            blocked_urls.update(
+                row[0]
+                for row in conn.execute("SELECT job_url FROM review_applications")
+            )
+        return [job for job in jobs if job.get("url", "") not in blocked_urls]
+
+    def record_submitted(self, job_id: str, job_title: str, job_url: str):
+        self._ensure_schema()
+        with self._connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO submitted_applications (job_url, job_id, job_title, submitted_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(job_url) DO NOTHING
+                """,
+                (job_url, job_id, job_title, datetime.now().isoformat()),
+            )
+            conn.execute("DELETE FROM review_applications WHERE job_url = ?", (job_url,))
+
+    def record_needs_review(
+        self,
+        job_id: str,
+        job_title: str,
+        job_url: str,
+        failure_status: str,
+        failed_fields: List[str],
+        details: str,
+        screenshot_path: str = "",
+    ):
+        """Separa uma vaga que o site nao aceitou para revisao manual posterior."""
+        self._ensure_schema()
+        with self._connection() as conn:
+            already_submitted = conn.execute(
+                "SELECT 1 FROM submitted_applications WHERE job_url = ?", (job_url,)
+            ).fetchone()
+            if already_submitted:
+                return
+            conn.execute(
+                """
+                INSERT INTO review_applications (
+                    job_url, job_id, job_title, failure_status, failed_fields_json,
+                    details, screenshot_path, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(job_url) DO UPDATE SET
+                    job_id = excluded.job_id,
+                    job_title = excluded.job_title,
+                    failure_status = excluded.failure_status,
+                    failed_fields_json = excluded.failed_fields_json,
+                    details = excluded.details,
+                    screenshot_path = excluded.screenshot_path,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    job_url,
+                    job_id,
+                    job_title,
+                    failure_status,
+                    json.dumps(failed_fields, ensure_ascii=False),
+                    details,
+                    screenshot_path,
+                    datetime.now().isoformat(),
+                ),
+            )
+
+    def list_review_jobs(self) -> List[dict]:
+        self._ensure_schema()
+        with self._connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT job_id, job_title, job_url, failure_status, failed_fields_json,
+                       details, screenshot_path, updated_at
+                FROM review_applications
+                ORDER BY updated_at DESC
+                """
+            ).fetchall()
+        return [
+            {
+                "job_id": row[0],
+                "title": row[1],
+                "url": row[2],
+                "failure_status": row[3],
+                "failed_fields": json.loads(row[4]),
+                "details": row[5],
+                "screenshot_path": row[6],
+                "updated_at": row[7],
+                "form_fields": [],
+            }
+            for row in rows
+        ]
+
+
 # =============================================================================
 # MOTOR DE APLICACAO (SYNC)
 # =============================================================================
@@ -202,15 +356,18 @@ class SaganAutoApplier:
         headless: bool = True,
         execute_apply: bool = False,
         fill_only: bool = False,
+        review_failed: bool = False,
     ):
         self.profile = profile
         self.headless = headless
         self.execute_apply = execute_apply
         self.fill_only = fill_only
+        self.review_failed = review_failed
         self.browser: Optional[Browser] = None
         self.context: Optional[BrowserContext] = None
         self.page: Optional[Page] = None
         self.results: List[ApplicationResult] = []
+        self.application_store = ApplicationStore(DEFAULT_APPLICATIONS_DB)
 
     def start(self):
         p = sync_playwright().start()
@@ -691,6 +848,13 @@ class SaganAutoApplier:
             job_id=job_id, job_title=job_title, url=job_url, status="DRY_RUN"
         )
 
+        if self.execute_apply and self.application_store.was_submitted(job_url):
+            msg = "Vaga ja registrada como enviada no banco local. Pulando."
+            log(f"  {msg}", "WARN")
+            result.status = "SKIPPED_ALREADY_SUBMITTED"
+            result.details = msg
+            return result
+
         try:
             self.page.goto(job_url, wait_until="networkidle")
             self.human_delay(1.5, 3.0)
@@ -830,6 +994,23 @@ class SaganAutoApplier:
             if failed_fields:
                 log(f"  Campos falharam ({len(failed_fields)}): {', '.join(failed_fields)}", "WARN")
 
+            if self.review_failed:
+                log("  REVISAO MANUAL: complete os campos restantes e envie no navegador aberto.")
+                log("  Quando o site confirmar o envio, digite ENVIADO no terminal.")
+                result.fields_filled = filled_fields
+                result.fields_failed = failed_fields
+                confirmed = input("Digite 'ENVIADO' apos a confirmacao do site (ou ENTER para manter na fila): ").strip()
+                if confirmed == "ENVIADO":
+                    self.application_store.record_submitted(job_id, job_title, job_url)
+                    result.status = "SUBMITTED_MANUAL"
+                    result.details = "Candidatura confirmada manualmente pelo usuario."
+                    log("  Vaga marcada como enviada e removida da fila de revisao.")
+                else:
+                    result.status = "NEEDS_REVIEW"
+                    result.details = "Mantida na fila de revisao manual."
+                    log("  Vaga mantida na fila de revisao manual.", "WARN")
+                return result
+
             if not self.execute_apply:
                 status_str = "FILLED" if self.fill_only else "DRY_RUN"
                 msg = f"Modo seguro ({status_str}). Submissao nao realizada."
@@ -894,7 +1075,7 @@ class SaganAutoApplier:
                 texto_lower = texto_pagina.lower()
                 erros_encontrados = [e for e in ERROS_VALIDACAO if e in texto_lower]
 
-                # Indicadores de SUCESSO (mensagem de confirmacao ou mudanca de URL)
+                # Indicadores de SUCESSO: o formulario deve mostrar confirmacao real.
                 MENSAGENS_SUCESSO = [
                     "thank you",
                     "application received",
@@ -906,7 +1087,6 @@ class SaganAutoApplier:
                     "candidatura recebida",
                 ]
                 mensagem_sucesso = any(m in texto_lower for m in MENSAGENS_SUCESSO)
-                url_mudou = url_apos != job_url
 
                 if erros_encontrados:
                     # Form REJEITOU — campos obrigatorios ainda vazios
@@ -921,8 +1101,14 @@ class SaganAutoApplier:
                     )
                     result.fields_filled = filled_fields
                     result.fields_failed = failed_fields
-                elif mensagem_sucesso or url_mudou:
+                    self.application_store.record_needs_review(
+                        job_id, job_title, job_url, result.status, failed_fields,
+                        result.details, str(shot),
+                    )
+                    log("  Vaga adicionada a fila de revisao manual.", "WARN")
+                elif mensagem_sucesso:
                     log(f"  Candidatura ENVIADA com sucesso! URL: {url_apos}")
+                    self.application_store.record_submitted(job_id, job_title, job_url)
                     result.status = "SUBMITTED"
                     result.details = "Formulario enviado e confirmado pelo site."
                     result.fields_filled = filled_fields
@@ -938,6 +1124,11 @@ class SaganAutoApplier:
                     )
                     result.fields_filled = filled_fields
                     result.fields_failed = failed_fields
+                    self.application_store.record_needs_review(
+                        job_id, job_title, job_url, result.status, failed_fields,
+                        result.details, str(shot),
+                    )
+                    log("  Vaga adicionada a fila de revisao manual.", "WARN")
             else:
                 log("  Botao de envio nao encontrado.", "WARN")
                 shot = self.debug_screenshot(f"submit_fail_{job_id}")
@@ -945,6 +1136,11 @@ class SaganAutoApplier:
                 result.details = f"Botao submit nao localizado. Screenshot: {shot}"
                 result.fields_filled = filled_fields
                 result.fields_failed = failed_fields
+                self.application_store.record_needs_review(
+                    job_id, job_title, job_url, result.status, failed_fields,
+                    result.details, str(shot),
+                )
+                log("  Vaga adicionada a fila de revisao manual.", "WARN")
 
         except Exception as e:
             log(f"  Erro ao processar vaga {job_id}: {e}", "ERROR")
@@ -953,6 +1149,11 @@ class SaganAutoApplier:
             result.details = f"Erro: {e} | Screenshot: {shot}"
             result.fields_filled = filled_fields
             result.fields_failed = failed_fields
+            self.application_store.record_needs_review(
+                job_id, job_title, job_url, result.status, failed_fields,
+                result.details, str(shot),
+            )
+            log("  Vaga adicionada a fila de revisao manual.", "WARN")
 
         return result
 
@@ -960,7 +1161,7 @@ class SaganAutoApplier:
 # =============================================================================
 # FUNCOES AUXILIARES
 # =============================================================================
-def load_jobs(jobs_path: Path, filter_keyword: Optional[str], limit: int) -> List[dict]:
+def load_jobs(jobs_path: Path, filter_keyword: Optional[str], limit: Optional[int]) -> List[dict]:
     if not jobs_path.exists():
         raise FileNotFoundError(f"Banco de vagas nao encontrado: {jobs_path}")
     data = json.loads(jobs_path.read_text(encoding="utf-8"))
@@ -1032,6 +1233,8 @@ def main():
     parser.add_argument("--dry-run", action="store_true", help="Simula preenchimento")
     parser.add_argument("--fill-only", action="store_true", help="Preenche formulario visivel")
     parser.add_argument("--execute-apply", action="store_true", help="EXECUTA ENVIO REAL")
+    parser.add_argument("--review-failed", action="store_true", help="Abre vagas pendentes para revisao e envio manual")
+    parser.add_argument("--list-review", action="store_true", help="Lista a fila de vagas que exigem revisao")
     parser.add_argument("--limit", type=int, default=1, help="Numero de vagas")
     parser.add_argument("--job-url", type=str, help="URL de vaga especifica")
     parser.add_argument("--filter-keyword", type=str, help="Filtrar por palavra-chave")
@@ -1039,6 +1242,22 @@ def main():
     parser.add_argument("--profile", type=str, default=str(DEFAULT_PROFILE_FILE), help="Caminho do perfil")
 
     args = parser.parse_args()
+
+    if args.review_failed and args.execute_apply:
+        parser.error("--review-failed nao pode ser usado com --execute-apply")
+    if args.review_failed and not args.no_headless:
+        parser.error("--review-failed exige --no-headless para voce revisar no navegador")
+
+    store = ApplicationStore(DEFAULT_APPLICATIONS_DB)
+    if args.list_review:
+        review_jobs = store.list_review_jobs()
+        print(f"Fila de revisao manual: {len(review_jobs)} vaga(s)")
+        for index, job in enumerate(review_jobs, 1):
+            fields = ", ".join(job["failed_fields"]) or "nao identificado"
+            print(f"{index}. {job['title']} [{job['failure_status']}]")
+            print(f"   Campos: {fields}")
+            print(f"   URL: {job['url']}")
+        return
 
     profile_path = Path(args.profile)
     jobs_path = DEFAULT_JOBS_FILE
@@ -1056,7 +1275,16 @@ def main():
     headless = not args.no_headless
 
     jobs_to_process: List[dict] = []
-    if args.job_url:
+    if args.review_failed:
+        jobs_to_process = store.list_review_jobs()
+        if args.filter_keyword:
+            keyword = args.filter_keyword.lower()
+            jobs_to_process = [
+                job for job in jobs_to_process
+                if keyword in job["title"].lower() or keyword in job["url"].lower()
+            ]
+        jobs_to_process = jobs_to_process[:args.limit]
+    elif args.job_url:
         slug = args.job_url.rstrip("/").split("/")[-1] if args.job_url else "direct_url"
         jobs_to_process.append({
             "title": f"Vaga Direta ({slug})",
@@ -1066,7 +1294,15 @@ def main():
         })
     else:
         try:
-            jobs_to_process = load_jobs(jobs_path, args.filter_keyword, args.limit)
+            all_matching_jobs = load_jobs(jobs_path, args.filter_keyword, limit=None)
+            if args.execute_apply:
+                pending_jobs = store.filter_pending_jobs(all_matching_jobs)
+                skipped_count = len(all_matching_jobs) - len(pending_jobs)
+                if skipped_count:
+                    log(f"Vagas ja enviadas removidas do lote: {skipped_count}")
+                jobs_to_process = pending_jobs[:args.limit]
+            else:
+                jobs_to_process = all_matching_jobs[:args.limit]
         except FileNotFoundError as e:
             print(f"Erro: {e}")
             sys.exit(1)
@@ -1078,7 +1314,7 @@ def main():
     print(f"Modo:        {'VISIVEL' if not headless else 'HEADLESS'}")
     action = (
         "SUBMISSAO REAL" if args.execute_apply
-        else ("PREENCHIMENTO VISIVEL" if args.fill_only else "DRY-RUN SEGURO")
+        else ("REVISAO MANUAL" if args.review_failed else ("PREENCHIMENTO VISIVEL" if args.fill_only else "DRY-RUN SEGURO"))
     )
     print(f"Acao:        {action}")
     print(f"Vagas:       {len(jobs_to_process)}")
@@ -1097,6 +1333,7 @@ def main():
         headless=headless,
         execute_apply=args.execute_apply,
         fill_only=args.fill_only,
+        review_failed=args.review_failed,
     )
 
     try:
@@ -1113,7 +1350,7 @@ def main():
 
         report_data = {
             "timestamp": datetime.now().isoformat(),
-            "mode": "EXECUTE_APPLY" if args.execute_apply else ("FILL_ONLY" if args.fill_only else "DRY_RUN"),
+            "mode": "EXECUTE_APPLY" if args.execute_apply else ("REVIEW_FAILED" if args.review_failed else ("FILL_ONLY" if args.fill_only else "DRY_RUN")),
             "total_processed": len(applier.results),
             "results": [r.to_dict() for r in applier.results],
         }

@@ -75,7 +75,9 @@ FIELD_CATEGORIES = {
     "story":             ["tell us about yourself", "your story", "about yourself", "introduce yourself", "background"],
     "why_company":       ["why.*company", "why.*interested", "what interests you", "why do you want"],
     "experience_tech":   ["experience with", "technical experience", "relevant experience", "describe your experience",
-                          "experience preparing", "experience sourcing", "experience leading", "experience managing"],
+                          "experience preparing", "experience sourcing", "experience leading", "experience managing",
+                          "quality assurance", "data validation", "documentation review", "explain your experience",
+                          "talk about your experience"],
     "experience_detail": ["tell us more", "additional information", "anything else", "more about"],
     "source_job":        ["how did you hear", "where did you hear", "how did you find", "referral"],
     "full_time_agree":   ["sole.*full.*time", "full.time.*sole", "only job", "primary employment"],
@@ -85,7 +87,7 @@ FIELD_CATEGORIES = {
 
 def detectar_categoria_campo(label: str, placeholder: str = "", aria_label: str = "") -> str:
     """Classifica um campo pela categoria semântica baseando-se no texto visível.
-    
+
     REGRA: Keywords de categorias fixas (email, phone, etc.) só batem se o label
     for CURTO (<= 80 chars) ou a keyword aparecer no INICIO do texto.
     Perguntas longas (>80 chars) são sempre 'unknown' a menos que contenham
@@ -94,13 +96,13 @@ def detectar_categoria_campo(label: str, placeholder: str = "", aria_label: str 
     # Usa aria-label ou placeholder se disponível (labels curtos e precisos)
     label_curto = aria_label or placeholder or ""
     label_full = label.strip()
-    
+
     # Texto principal para matching
     texto = " ".join([label_curto, label_full]).casefold().strip()
-    
+
     if not texto:
         return "unknown"
-    
+
     # Categorias FIXAS — só batem em labels curtos (<= 80 chars) para evitar
     # falsos positivos em perguntas longas (ex: "through phone calls" → phone)
     CATEGORIAS_FIXAS = {
@@ -108,7 +110,7 @@ def detectar_categoria_campo(label: str, placeholder: str = "", aria_label: str 
         "vocaroo", "linkedin", "github", "current_salary", "target_salary",
         "job_title", "source_job", "full_time_agree", "contract_type",
     }
-    
+
     for categoria, palavras_chave in FIELD_CATEGORIES.items():
         for kw in palavras_chave:
             try:
@@ -123,8 +125,10 @@ def detectar_categoria_campo(label: str, placeholder: str = "", aria_label: str 
                     kw_no_inicio = bool(re.search(kw, texto[:60]))
                     if not (label_eh_curto or kw_no_inicio):
                         continue  # Ignora: keyword está dentro de uma pergunta longa
+                if categoria in {"experience_tech", "experience_detail"} and len(label_full.strip()) > 80:
+                    return "unknown"
                 return categoria
-    
+
     return "unknown"
 
 
@@ -135,7 +139,7 @@ def detectar_categoria_campo(label: str, placeholder: str = "", aria_label: str 
 
 def sanitizar_perfil_para_ia(profile: dict) -> dict:
     """Remove dados sensíveis do perfil antes de enviar à IA.
-    
+
     A IA nunca recebe: email, telefone, URLs, dados pessoais exatos.
     Recebe apenas: nome, cargo, habilidades e contexto narrativo.
     """
@@ -217,63 +221,63 @@ def _executar_request_ai(modelo: str, api_key: str, payload: dict, system_prompt
 
 def chamar_ai(payload: dict, system_prompt: str) -> tuple[dict | None, str]:
     """Chama OpenRouter com timeout real via thread daemon + fallback entre modelos.
-    
+
     Retorna (resposta_json, modelo_usado) ou (None, '') em caso de falha total.
     Arquitetura idêntica ao chamar_openrouter_benchmark do Wellfound.
     """
     api_key = _obter_api_key()
     if not api_key:
         return None, ""
-    
+
     for modelo in AI_MODELS:
         fila: queue.Queue[dict] = queue.Queue(maxsize=1)
-        
+
         def worker(m=modelo):
             resultado = _executar_request_ai(m, api_key, payload, system_prompt)
             try:
                 fila.put_nowait(resultado)
             except queue.Full:
                 pass
-        
+
         t = threading.Thread(target=worker, daemon=True, name=f"sagan-ai-{modelo}")
         inicio = time.perf_counter()
         t.start()
         t.join(AI_TOTAL_TIMEOUT)
         latencia = round(time.perf_counter() - inicio, 2)
-        
+
         if t.is_alive():
             print(f"  [AI] Timeout ({AI_TOTAL_TIMEOUT}s) em {modelo}, tentando fallback...")
             continue
-        
+
         try:
             resultado = fila.get_nowait()
         except queue.Empty:
             continue
-        
+
         if resultado.get("error"):
             print(f"  [AI] Erro em {modelo}: {resultado['error']}, tentando fallback...")
             continue
-        
+
         # Extrair JSON da resposta
         resposta, erro_json = extrair_json_resposta(resultado.get("raw", ""))
         if resposta:
             print(f"  [AI] Resposta em {latencia}s via {modelo}")
             return resposta, modelo
-        
+
         print(f"  [AI] JSON inválido de {modelo} ({erro_json}), tentando fallback...")
-    
+
     return None, ""
 
 
 def extrair_json_resposta(texto: str) -> tuple[dict | None, str]:
     """Extrai JSON da resposta da IA, lidando com cercas markdown.
-    
+
     Idêntico ao extrair_json_resposta_modelo do Wellfound.
     """
     bruto = texto.strip()
     if not bruto:
         return None, "empty_response"
-    
+
     candidatos = [bruto]
     # Remove cercas de código markdown
     if bruto.startswith("```"):
@@ -285,7 +289,7 @@ def extrair_json_resposta(texto: str) -> tuple[dict | None, str]:
     fim = bruto.rfind("}")
     if inicio >= 0 and fim > inicio:
         candidatos.append(bruto[inicio:fim + 1])
-    
+
     for c in candidatos:
         try:
             dados = json.loads(c)
@@ -293,7 +297,7 @@ def extrair_json_resposta(texto: str) -> tuple[dict | None, str]:
                 return dados, ""
         except json.JSONDecodeError:
             continue
-    
+
     return None, "json_decode_error"
 
 
@@ -328,9 +332,9 @@ def gerar_resposta_campo_dinamico(
     perfil_sanitizado: dict,
 ) -> str:
     """Gera resposta para campo de pergunta aberta usando IA (Gemini Flash via OpenRouter).
-    
-    Retorna string vazia se a IA falhar ou a resposta não for segura.
-    Python decide se usa; IA apenas sugere texto.
+
+    Faz até 2 tentativas (com pausa de 3s) para lidar com rate-limits.
+    Retorna string vazia se a IA falhar em todas as tentativas.
     """
     payload = {
         "task": "sagan_field_answer",
@@ -352,36 +356,36 @@ def gerar_resposta_campo_dinamico(
             "degree_claims", "referral",
         ],
     }
-    
-    resposta, modelo = chamar_ai(payload, SYSTEM_PROMPT_SAGAN)
-    
-    if not resposta:
-        return ""
-    
-    answer = str(resposta.get("answer", "")).strip()
-    safe = resposta.get("safe_to_fill") is True
-    risk_flags = resposta.get("risk_flags", [])
-    confidence = float(resposta.get("confidence", 0))
-    
-    # Validação de segurança (mesma lógica do Wellfound)
-    if not safe:
-        print(f"  [AI] Resposta bloqueada: safe_to_fill=False")
-        return ""
-    if risk_flags:
-        print(f"  [AI] Resposta bloqueada: risk_flags={risk_flags}")
-        return ""
-    if confidence < 0.5:
-        print(f"  [AI] Confiança baixa ({confidence}), usando DEFAULT")
-        return ""
-    if not answer or len(answer) < 20:
-        return ""
-    
-    # Remove dados pessoais que possam ter vazado
-    answer = re.sub(r"https?://\S+", "", answer)
-    answer = re.sub(r"\b[\w.+-]+@[\w-]+\.\w+\b", "", answer)
-    answer = re.sub(r"\+?\d[\d\s\-().]{7,}\d", "", answer)
-    
-    return answer.strip()
+
+    for tentativa in range(2):  # Até 2 tentativas
+        if tentativa > 0:
+            print(f"  [AI] Retry {tentativa}/1 após pausa...")
+            time.sleep(3)
+
+        resposta, modelo = chamar_ai(payload, SYSTEM_PROMPT_SAGAN)
+
+        if not resposta:
+            continue
+
+        answer = str(resposta.get("answer", "")).strip()
+        safe = resposta.get("safe_to_fill") is True
+        risk_flags = resposta.get("risk_flags", [])
+        confidence = float(resposta.get("confidence", 0))
+
+        # Validação de segurança
+        if not safe or risk_flags or confidence < 0.5 or not answer or len(answer) < 20:
+            if not safe:
+                print(f"  [AI] safe_to_fill=False, retry...")
+            continue
+
+        # Remove dados pessoais que possam ter vazado
+        answer = re.sub(r"https?://\S+", "", answer)
+        answer = re.sub(r"\b[\w.+-]+@[\w-]+\.\w+\b", "", answer)
+        answer = re.sub(r"\+?\d[\d\s\-().]{7,}\d", "", answer)
+
+        return answer.strip()
+
+    return ""
 
 
 # ---------------------------------------------------------------------------
@@ -391,7 +395,7 @@ def gerar_resposta_campo_dinamico(
 @dataclass
 class SaganFieldEngine:
     """Motor de preenchimento semântico para formulários do Sagan Recruitment.
-    
+
     Detecta campos pelo label/aria-label/placeholder (não por posição/índice),
     responde campos fixos com dados do profile, e chama IA para perguntas abertas.
     """
@@ -399,15 +403,15 @@ class SaganFieldEngine:
     profile: dict         # candidate_profile.json já carregado como dict
     job_title: str = ""
     job_url: str = ""
-    
+
     # Controle interno
     filled_fields: list = field(default_factory=list)
     failed_fields: list = field(default_factory=list)
     _perfil_sanitizado: dict = field(default_factory=dict, init=False)
-    
+
     def __post_init__(self):
         self._perfil_sanitizado = sanitizar_perfil_para_ia(self.profile)
-    
+
     def _get_field_label(self, elem) -> str:
         """Extrai o label visível de um campo de formulário via JavaScript."""
         try:
@@ -436,7 +440,7 @@ class SaganFieldEngine:
             }""", elem)
         except Exception:
             return ""
-    
+
     def _highlight(self, elem):
         """Destaque visual laranja antes de preencher."""
         try:
@@ -454,7 +458,7 @@ class SaganFieldEngine:
             }""", elem)
         except Exception:
             pass
-    
+
     def _fill_input(self, elem, value: str, label: str) -> bool:
         """Preenche um input de texto verificando o valor após o preenchimento."""
         if not value:
@@ -463,7 +467,7 @@ class SaganFieldEngine:
             self._highlight(elem)
             elem.click(force=True)
             time.sleep(0.3)
-            
+
             tag = elem.evaluate("el => el.tagName")
             if tag == "TEXTAREA":
                 elem.evaluate("""(el, val) => {
@@ -475,19 +479,19 @@ class SaganFieldEngine:
                 }""", value)
             else:
                 elem.fill(value, force=True)
-            
+
             time.sleep(0.4)
-            
+
             try:
                 actual = elem.evaluate("el => el.value") if tag == "TEXTAREA" else elem.input_value()
             except Exception:
                 actual = ""
-            
+
             if actual and actual.strip():
                 print(f"  ✓ [{label}]: {actual[:50]!r}")
                 self.filled_fields.append(label)
                 return True
-            
+
             print(f"  ✗ Falhou [{label}]", flush=True)
             self.failed_fields.append(label)
             return False
@@ -495,11 +499,11 @@ class SaganFieldEngine:
             print(f"  ✗ Erro [{label}]: {type(e).__name__}")
             self.failed_fields.append(label)
             return False
-    
+
     def _resposta_para_categoria(self, categoria: str, field_label: str) -> str:
         """Retorna o valor do profile para campos fixos, ou chama IA para dinâmicos."""
         p = self.profile
-        
+
         # Campos fixos: resposta direto do candidate_profile.json
         RESPOSTAS_FIXAS = {
             "full_name":      f"{p.get('first_name','')} {p.get('last_name','')}".strip(),
@@ -518,12 +522,12 @@ class SaganFieldEngine:
             "experience_tech": p.get("exp_1", "I have extensive experience in technology and automation projects with proven results."),
             "experience_detail": p.get("exp_2", "I bring strong analytical skills and a track record of delivering quality work."),
         }
-        
+
         if categoria in RESPOSTAS_FIXAS:
             val = RESPOSTAS_FIXAS[categoria]
             if val:
                 return val
-        
+
         # Campo dinâmico (categoria "unknown" ou sem resposta mapeada):
         # chama IA para gerar texto sob medida
         # Inclui background_full no perfil sanitizado para a IA ter contexto rico
@@ -543,73 +547,73 @@ class SaganFieldEngine:
             if resposta_ai:
                 return resposta_ai
             print(f"  [AI] Sem resposta da IA, usando fallback do perfil")
-        
+
         # Fallback: usa background_full se disponível, senão cover_letter
         bg = p.get("background_full", "")
         return bg[:400] if bg else p.get("cover_letter", "I am a results-driven professional with strong technical and communication skills.")
-    
+
     def fill_all_fields(self) -> dict:
         """Detecta e preenche semanticamente todos os campos visíveis do formulário.
-        
+
         Funciona independente da ordem dos campos na página — busca por label,
         não por posição. Campos como Vocaroo são detectados e preenchidos
         automaticamente quando presentes, sem deslocar os outros seletores.
-        
+
         Retorna dict com {'filled': [...], 'failed': [...], 'skipped': [...]}
         """
         skipped = []
-        
+
         # Coletar todos os inputs e textareas visíveis
         all_inputs = self.page.query_selector_all('input:not([type="hidden"]):not([type="file"]):not([type="submit"]):not([type="checkbox"]):not([type="radio"])')
         all_textareas = self.page.query_selector_all('textarea')
-        
+
         elementos = [(e, "input") for e in all_inputs if e.is_visible()] + \
                     [(e, "textarea") for e in all_textareas if e.is_visible()]
-        
+
         # Mapa de campos já preenchidos por categoria (evitar duplicatas)
         categorias_preenchidas: set[str] = set()
-        
+
         for elem, elem_type in elementos:
             try:
                 # Extrair label/aria-label/placeholder
                 label_text = self._get_field_label(elem)
                 aria = (elem.get_attribute("aria-label") or "").strip()
                 placeholder = (elem.get_attribute("placeholder") or "").strip()
-                
+
                 # Detectar categoria semanticamente
                 categoria = detectar_categoria_campo(label_text, placeholder, aria)
-                
+
                 # Nome para log
                 display_label = aria or placeholder or label_text[:60] or f"campo_{elem_type}"
-                
+
                 # Pular react-select inputs (tratados separadamente)
                 elem_id = (elem.get_attribute("id") or "")
                 if "react-select" in elem_id:
                     skipped.append(f"{display_label} [react-select, tratado separado]")
                     continue
-                
+
                 # Pular se a categoria já foi preenchida (ex: 2 inputs de email)
                 if categoria in categorias_preenchidas and categoria != "unknown":
                     skipped.append(f"{display_label} [categoria '{categoria}' já preenchida]")
                     continue
-                
+
                 # Obter valor (fixo do profile ou gerado por IA)
                 valor = self._resposta_para_categoria(categoria, label_text or display_label)
-                
+
                 if not valor:
                     skipped.append(f"{display_label} [sem valor configurado]")
                     continue
-                
+
                 # Preencher
                 if self._fill_input(elem, valor, f"{categoria}:{display_label[:40]}"):
                     categorias_preenchidas.add(categoria)
-                
+
                 time.sleep(0.5)
-                
+
             except Exception as e:
                 print(f"  [WARN] Erro ao processar campo: {type(e).__name__}: {str(e)[:80]}")
                 continue
-        
+
         return {
             "filled": self.filled_fields,
             "failed": self.failed_fields,

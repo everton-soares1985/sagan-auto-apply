@@ -110,6 +110,9 @@ python -X utf8 sagan_auto_apply.py --execute-apply --filter-keyword "Python" --l
 python -X utf8 sagan_auto_apply.py --execute-apply --limit 10
 ```
 
+Vagas confirmadas e vagas que precisem de complemento manual sao retiradas
+automaticamente dos proximos lotes.
+
 O sistema pedirá confirmação antes de enviar:
 ```
 [!] MODO SUBMISSAO REAL ATIVADO.
@@ -142,6 +145,8 @@ Após cada execução, o sistema gera:
 | `--dry-run`             | Simula preenchimento sem enviar (modo seguro)                           |
 | `--fill-only`           | Preenche formulário visível sem clicar em enviar                        |
 | `--execute-apply`       | **ENVIA CANDIDATURA REAL** (requer confirmação)                         |
+| `--list-review`         | Lista vagas que falharam e aguardam revisão manual                      |
+| `--review-failed`       | Abre uma vaga da fila para completar e enviar manualmente               |
 | `--no-headless`         | Abre navegador visível durante a operação                               |
 | `--limit N`             | Processa no máximo N vagas (padrão: 1)                                  |
 | `--filter-keyword "X"`  | Filtra vagas por palavra-chave no título/descrição                      |
@@ -172,6 +177,13 @@ python -X utf8 sagan_auto_apply.py --execute-apply --filter-keyword "Data Analys
 python -X utf8 sagan_auto_apply.py --execute-apply --limit 175
 ```
 → Pausa automática de 5-12s entre vagas para evitar bloqueios.
+
+**5. Revisar uma vaga que o site rejeitou:**
+```bash
+python -X utf8 sagan_auto_apply.py --review-failed --no-headless --limit 1
+```
+→ Complete os campos restantes, envie no site e digite `ENVIADO` no terminal
+somente depois da confirmação. A vaga é então marcada como enviada.
 
 ---
 
