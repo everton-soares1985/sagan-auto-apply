@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 import os
 import queue
+import random
 import re
 import threading
 import time
@@ -49,6 +50,8 @@ AI_TEMPERATURE = 0.2
 AI_MAX_TOKENS = 800
 AI_SOCKET_TIMEOUT = 30
 AI_TOTAL_TIMEOUT = 60
+FIELD_TO_FIELD_DELAY_MIN = 2.0
+FIELD_TO_FIELD_DELAY_MAX = 4.5
 
 # ---------------------------------------------------------------------------
 # MAPEAMENTO SEMÂNTICO DE CAMPOS (Python puro, sem IA)
@@ -608,7 +611,7 @@ class SaganFieldEngine:
                 if self._fill_input(elem, valor, f"{categoria}:{display_label[:40]}"):
                     categorias_preenchidas.add(categoria)
 
-                time.sleep(0.5)
+                time.sleep(random.uniform(FIELD_TO_FIELD_DELAY_MIN, FIELD_TO_FIELD_DELAY_MAX))
 
             except Exception as e:
                 print(f"  [WARN] Erro ao processar campo: {type(e).__name__}: {str(e)[:80]}")

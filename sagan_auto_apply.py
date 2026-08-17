@@ -55,6 +55,12 @@ HUMAN_DELAY_MIN = 0.9
 HUMAN_DELAY_MAX = 2.2
 BATCH_DELAY_MIN = 8.0
 BATCH_DELAY_MAX = 17.0
+JOB_PAGE_SETTLE_DELAY_MIN = 4.0
+JOB_PAGE_SETTLE_DELAY_MAX = 6.5
+FORM_PAGE_SETTLE_DELAY_MIN = 5.0
+FORM_PAGE_SETTLE_DELAY_MAX = 8.0
+FIELD_TO_FIELD_DELAY_MIN = 2.0
+FIELD_TO_FIELD_DELAY_MAX = 4.5
 
 CTA_SELECTORS = [
     "a:has-text('APPLY FOR THIS JOB')",
@@ -625,13 +631,13 @@ class SaganAutoApplier:
                 if "forms.saganrecruitment.com" in href or "sagan" in href:
                     log(f"  -> Navegando para: {href[:80]}")
                     self.page.goto(href, wait_until="networkidle")
-                    self.human_delay(2.0, 3.5)
+                    self.human_delay(FORM_PAGE_SETTLE_DELAY_MIN, FORM_PAGE_SETTLE_DELAY_MAX)
                     return True
                 # Senao, clicar
                 btn.scroll_into_view_if_needed()
                 self.human_delay(0.8, 1.5)
                 btn.click(force=True)
-                self.human_delay(2.0, 3.5)
+                self.human_delay(FORM_PAGE_SETTLE_DELAY_MIN, FORM_PAGE_SETTLE_DELAY_MAX)
                 # Checar se navegou
                 if "forms.saganrecruitment.com" in self.page.url:
                     return True
@@ -857,7 +863,7 @@ class SaganAutoApplier:
 
         try:
             self.page.goto(job_url, wait_until="networkidle")
-            self.human_delay(1.5, 3.0)
+            self.human_delay(JOB_PAGE_SETTLE_DELAY_MIN, JOB_PAGE_SETTLE_DELAY_MAX)
             self._scroll()
             self.navigate_to_apply_form()
 
@@ -919,6 +925,7 @@ class SaganAutoApplier:
                         if actual and actual.strip():
                             log(f"  V Preenchido [{label}]: {actual[:40]!r}")
                             filled_fields.append(label)
+                            self.human_delay(FIELD_TO_FIELD_DELAY_MIN, FIELD_TO_FIELD_DELAY_MAX)
                             return True
                     except Exception:
                         pass
